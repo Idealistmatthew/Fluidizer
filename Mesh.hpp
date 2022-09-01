@@ -1,6 +1,7 @@
 #pragma once
 
 #include <glm/vec3.hpp>
+#include <glm/glm.hpp>
 
 class Mesh
 {
@@ -118,13 +119,10 @@ void Mesh::Advect(float dt) {
                 }
                 temp_Vel = interpolate_advecvel(Particle_Postemp);
                 Particle_Pos = Particle_Postemp - (float)dt * temp_Vel* dist_to_cell_vector ;
-                if (within_bounds(Particle_Pos) == true) {
-                    Particle_Vel = interpolate_advecvel(Particle_Pos);
-                }
-                else {
+                if (within_bounds(Particle_Pos) == false) {
                     Particle_Pos = nearest_valid_pos(Particle_Pos);
-                    Particle_Vel = glm::vec3(xVel[int(Particle_Pos.x)], yVel[int(Particle_Pos.y)], zVel[int(Particle_Pos.z)]);
                 }
+                Particle_Vel = interpolate_advecvel(Particle_Pos);
                 new_Vel = advect_fininterp(Particle_Pos, Particle_Vel);
                 xVel[i] = new_Vel.x;
                 yVel[j] = new_Vel.y;
@@ -172,6 +170,17 @@ glm::vec3 Mesh::nearest_valid_pos(glm::vec3 Pos) {
     }
     valid_pos = glm::vec3(x_pos, y_pos, z_pos);
     return valid_pos;
+}
+
+glm::vec3 Mesh::interpolate_advecvel(glm::vec3 pos) {
+    glm::vec3 bottom_pos = glm::vec3(floor(pos.x), floor(pos.y), floor(pos.z));
+    glm::vec3 top_pos = glm::vec3(ceil(pos.x), ceil(pos.y), ceil(pos.z));
+    float inter_dist = glm::length(pos - bottom_pos);
+    float cell_diag_dist = glm::length(top_pos - bottom_pos);
+    glm::vec3 bottom_vel = glm::vec3(xVel[int(bottom_pos.x)], yVel[int(bottom_pos.y)], zVel[int(bottom_pos.z)]);
+    glm::vec3 top_vel = glm::vec3(xVel[int(top_pos.x)], yVel[int(top_pos.y)], zVel[int(top_pos.z)]);
+    glm::vec3 interp_vel = bottom_vel + (inter_dist / cell_diag_dist) * top_vel;
+    return interp_vel;
 }
 
 void Mesh::Project() {
