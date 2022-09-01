@@ -25,6 +25,10 @@ public:
     float* yVel;
     float* zVel;
 
+    // Conversion physical units and cell units
+    glm::vec3 cell_to_dist_vector;
+    glm::vec3 dist_to_cell_vector;
+
     int cellsize;
     int gridsize;
     glm::vec3* Position;
@@ -61,6 +65,8 @@ Mesh::Mesh(float X, float Y, float Z, float dx1, float dy1, float dz1) {
 
     cellsize = numX * numY * numZ;
     //gridsize = (numX + 1) * (numY + 1) * (numZ + 1);
+    cell_to_dist_vector = glm::vec3(dx, dy, dz);
+    dist_to_cell_vector = glm::vec3(1 / dx, 1 / dy, 1 / dz);
 
     Pressure = new float[cellsize];
     memset(Pressure, 0, sizeof(float) * cellsize);
@@ -106,15 +112,12 @@ void Mesh::Advect(float dt) {
                 glm::vec3 new_Vel;
 
                 // I'm Using runge kutta btw Refer to the Bridson-Robert Book pg 32
-                Particle_Postemp = Curr_Position - (float)dt* Curr_Vel*0.5f;
-                if (within_bounds(Particle_Postemp) == true) {
-                    temp_Vel = interpolate_advecvel(Particle_Postemp);
-                }
-                else {
+                Particle_Postemp = Curr_Position - (float)dt* (Curr_Vel*dist_to_cell_vector)*0.5f;
+                if (within_bounds(Particle_Postemp) == false) {
                     Particle_Postemp = nearest_valid_pos(Particle_Postemp);
-                    temp_Vel = glm::vec3(xVel[int(Particle_Postemp.x)], yVel[int(Particle_Postemp.y)], zVel[int(Particle_Postemp.z)]);
                 }
-                Particle_Pos = Particle_Postemp - (float)dt * temp_Vel;
+                temp_Vel = interpolate_advecvel(Particle_Postemp);
+                Particle_Pos = Particle_Postemp - (float)dt * temp_Vel* dist_to_cell_vector ;
                 if (within_bounds(Particle_Pos) == true) {
                     Particle_Vel = interpolate_advecvel(Particle_Pos);
                 }
@@ -129,6 +132,46 @@ void Mesh::Advect(float dt) {
             }
         }
     }
+}
+
+bool Mesh::within_bounds(glm::vec3 Particle_Pos) {
+    return Particle_Pos.x > numX || Particle_Pos.x < 0 || Particle_Pos.y > numY || Particle_Pos.y < 0 || Particle_Pos.z > numZ || Particle_Pos.z < 0;
+}
+
+glm::vec3 Mesh::nearest_valid_pos(glm::vec3 Pos) {
+    glm::vec3 valid_pos;
+    float x_pos;
+    float y_pos;
+    float z_pos;
+    if (Pos.x > numX ) {
+        x_pos = numX;
+    }
+    else if (Pos.x < 0) {
+        x_pos = 0;
+    }
+    else {
+        x_pos = Pos.x;
+    }
+    if (Pos.y > numY) {
+        y_pos = numY;
+    }
+    else if (Pos.y < 0) {
+        y_pos = 0;
+    }
+    else {
+        y_pos = Pos.y;
+    }
+    if (Pos.z > numZ) {
+        z_pos = numZ;
+    }
+    else if (Pos.z < 0) {
+        z_pos = 0;
+    }
+    else {
+        z_pos = Pos.z;
+    }
+    valid_pos = glm::vec3(x_pos, y_pos, z_pos);
+    return valid_pos;
 }
 
 void Mesh::Project() {
