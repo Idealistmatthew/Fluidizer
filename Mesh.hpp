@@ -41,7 +41,6 @@ public:
     bool within_bounds(glm::vec3 pos);
     glm::vec3 nearest_valid_pos(glm::vec3 pos);
     glm::vec3 interpolate_advecvel(glm::vec3 pos);
-    glm::vec3 advect_fininterp(glm::vec3 particle_pos, glm::vec3 particle_vel);
 
     // Project Programme
     void Project();
