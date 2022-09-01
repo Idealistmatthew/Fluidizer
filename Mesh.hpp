@@ -110,7 +110,6 @@ void Mesh::Advect(float dt) {
                 glm::vec3 Particle_Pos;
                 glm::vec3 temp_Vel;
                 glm::vec3 Particle_Vel;
-                glm::vec3 new_Vel;
 
                 // I'm Using runge kutta btw Refer to the Bridson-Robert Book pg 32
                 Particle_Postemp = Curr_Position - (float)dt* (Curr_Vel*dist_to_cell_vector)*0.5f;
@@ -123,10 +122,9 @@ void Mesh::Advect(float dt) {
                     Particle_Pos = nearest_valid_pos(Particle_Pos);
                 }
                 Particle_Vel = interpolate_advecvel(Particle_Pos);
-                new_Vel = advect_fininterp(Particle_Pos, Particle_Vel);
-                xVel[i] = new_Vel.x;
-                yVel[j] = new_Vel.y;
-                zVel[k] = new_Vel.z;
+                xVel[i] = Particle_Vel.x;
+                yVel[j] = Particle_Vel.y;
+                zVel[k] = Particle_Vel.z;
             }
         }
     }
