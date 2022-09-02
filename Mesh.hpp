@@ -25,6 +25,7 @@ public:
     float* xVel;
     float* yVel;
     float* zVel;
+    glm::vec3* Velocity;
 
     // Conversion physical units and cell units
     glm::vec3 cell_to_dist_vector;
@@ -33,6 +34,9 @@ public:
     int cellsize;
     int gridsize;
     glm::vec3* Position;
+
+    // Helper functions to build initial conditions
+    void AddVelocityUniform(glm::vec3 AddVel);
 
     // Advection Programme
     void Advect(float dt);
@@ -78,13 +82,26 @@ Mesh::Mesh(float X, float Y, float Z, float dx1, float dy1, float dz1) {
 
     // Decided not to do staggered grid for now
     Position = new glm::vec3[cellsize];
+    for (int i = 0; i < numX; i++) {
+        for (int j = 0; j < numY; j++) {
+            for (int k = 0; k < numZ; k++) {
+                Position[INDEX(i, j, k)] = glm::vec3(i * dx, j * dy, k * dz);
+            }
+        }
+    }
 
-    xVel = new float[cellsize];
-    memset(xVel, 0, sizeof(float) * cellsize);
-    yVel = new float[cellsize];
-    memset(yVel, 0, sizeof(float) * cellsize);
-    zVel = new float[cellsize];
-    memset(zVel, 0, sizeof(float) * cellsize);
+    Velocity = new glm::vec3[cellsize];
+    for (int i = 0; i < cellsize; i++) {
+        Velocity[i] = glm::vec3(0, 0, 0);
+    }
+    
+    // Keeping for Staggered Grid implementation maybe
+    /*xvel = new float[cellsize];
+    memset(xvel, 0, sizeof(float) * cellsize);
+    yvel = new float[cellsize];
+    memset(yvel, 0, sizeof(float) * cellsize);
+    zvel = new float[cellsize];
+    memset(zvel, 0, sizeof(float) * cellsize);*/
 };
 
 Mesh::~Mesh() {
@@ -99,12 +116,18 @@ int Mesh::INDEX(int idx, int idy, int idz) {
     return idx + numX * idy + numX * numY * idz;
 };
 
+void Mesh::AddVelocityUniform(glm::vec3 AddVel) {
+    for (int i = 0; i < cellsize; i++) {
+        Position[i] += AddVel;
+    }
+}
+
 void Mesh::Advect(float dt) {
-    for (int i = 1; i <= numX; i++) {
-        for (int j = 1; j <= numY; j++) {
-            for (int k = 1; k <= numZ; k++) {
-                glm::vec3 Curr_Position = Position[INDEX(i, j, k)];
-                glm::vec3 Curr_Vel = glm::vec3(xVel[i],yVel[j],zVel[k]);
+    for (int i = 0; i < numX; i++) {
+        for (int j = 0; j < numY; j++) {
+            for (int k = 0; k < numZ; k++) {
+                glm::vec3 Curr_Position = Position[INDEX(i,j,k)];
+                glm::vec3 Curr_Vel = Velocity[INDEX(i,j,k)];
                 glm::vec3 Particle_Postemp;
                 glm::vec3 Particle_Pos;
                 glm::vec3 temp_Vel;
@@ -121,9 +144,7 @@ void Mesh::Advect(float dt) {
                     Particle_Pos = nearest_valid_pos(Particle_Pos);
                 }
                 Particle_Vel = interpolate_advecvel(Particle_Pos);
-                xVel[i] = Particle_Vel.x;
-                yVel[j] = Particle_Vel.y;
-                zVel[k] = Particle_Vel.z;
+                Velocity[INDEX(i, j, k)] = Particle_Vel;
             }
         }
     }
@@ -174,8 +195,8 @@ glm::vec3 Mesh::interpolate_advecvel(glm::vec3 pos) {
     glm::vec3 top_pos = glm::vec3(ceil(pos.x), ceil(pos.y), ceil(pos.z));
     float inter_dist = glm::length(pos - bottom_pos);
     float cell_diag_dist = glm::length(top_pos - bottom_pos);
-    glm::vec3 bottom_vel = glm::vec3(xVel[int(bottom_pos.x)], yVel[int(bottom_pos.y)], zVel[int(bottom_pos.z)]);
-    glm::vec3 top_vel = glm::vec3(xVel[int(top_pos.x)], yVel[int(top_pos.y)], zVel[int(top_pos.z)]);
+    glm::vec3 bottom_vel = Velocity[INDEX(int(bottom_pos.x), int(bottom_pos.y), int(bottom_pos.z))];
+    glm::vec3 top_vel = Velocity[INDEX(int(top_pos.x), int(top_pos.y), int(top_pos.z))];
     glm::vec3 interp_vel = bottom_vel + (inter_dist / cell_diag_dist) * top_vel;
     return interp_vel;
 }
