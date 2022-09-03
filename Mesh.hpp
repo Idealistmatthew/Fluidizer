@@ -21,6 +21,11 @@ public:
     //
     float* Density;
     float* Pressure;
+    float* Gauss_Seidel_Presstemp;
+    float* Temp_Div;
+
+    // Constant fluid density for incompressible fluid
+    float fluid_density;
 
     float* xVel;
     float* yVel;
@@ -47,7 +52,12 @@ public:
     glm::vec3 interpolate_advecvel(glm::vec3 pos);
 
     // Project Programme
-    void Project();
+    void Project(float dt);
+
+    void Project_update_vel(float dt);
+    void Project_update_pressure(float dt);
+    void Project_residual_divergence(float dt);
+    void Project_Gauss_Seidel(float dt);
 
 
     Mesh(float X, float Y, float Z, float dx1, float dy1, float dz1); // Constructor Function
@@ -74,13 +84,16 @@ Mesh::Mesh(float X, float Y, float Z, float dx1, float dy1, float dz1) {
 
     Pressure = new float[cellsize];
     memset(Pressure, 0, sizeof(float) * cellsize);
+    Gauss_Seidel_Presstemp = new float[cellsize];
     Density = new float[cellsize];
     memset(Density, 0, sizeof(float) * cellsize);
+    Temp_Div = new float[cellsize];
     // The cellsize block of the position array stores the cell centers (for force and quantity advection)
     // The gridsize block of the position array stores the grid points (for vector advection)
     //Position = new glm::vec3[cellsize + gridsize];
 
     // Decided not to do staggered grid for now
+    fluid_density = 1.225;
     Position = new glm::vec3[cellsize];
     for (int i = 0; i < numX; i++) {
         for (int j = 0; j < numY; j++) {
@@ -110,6 +123,7 @@ Mesh::~Mesh() {
     delete yVel;
     delete zVel;
     delete Position;
+    delete Temp_Div;
 };
 
 int Mesh::INDEX(int idx, int idy, int idz) {
@@ -201,6 +215,58 @@ glm::vec3 Mesh::interpolate_advecvel(glm::vec3 pos) {
     return interp_vel;
 }
 
-void Mesh::Project() {
+void Mesh::Project(float dt) {
+    Project_update_pressure(dt);
+    Project_update_vel(dt);
+}
 
+void Mesh::Project_update_pressure(float dt) {
+    Project_residual_divergence(dt);
+    Project_Gauss_Seidel(dt);
+}
+
+// Pending: Have to figure our how to deal with boundary conditions
+void Mesh::Project_residual_divergence(float dt) {
+    for (int i = 0; i < numX; i++) {
+        for (int j = 0; j < numY; j++) {
+            for (int k = 0; k < numZ; k++) {
+                glm::vec3 current_pos = Position[INDEX(i, j, k)];
+                if (within_bounds(current_pos)) {
+                    Temp_Div[INDEX(i, j, k)] = -(Velocity[INDEX(i + 1, j, k)].x - Velocity[INDEX(i - 1, j, k)].x) / dx - (Velocity[INDEX(i, j + 1, k)].y - Velocity[INDEX(i, j - 1, k)].y) / dy - (Velocity[INDEX(i, j, k + 1)].z - Velocity[INDEX(i, j, k - 1)].z) / dz;
+                }
+            }
+        }
+    }
+}
+void Mesh::Project_Gauss_Seidel(float dt) {
+    float temp_number;
+    for (uint32_t iterations = 0; iterations < 100; iterations++) {
+        for (int i = 0; i < numX; i++) {
+            for (int j = 0; j < numY; j++) {
+                for (int k = 0; k < numZ; k++) {
+                    glm::vec3 current_pos = Position[INDEX(i, j, k)];
+                    if (within_bounds(current_pos)) { 
+                        temp_number = dt/fluid_density*( ( Pressure[INDEX(i + 1, j, k)] - Pressure[INDEX(i - 1, j, k)]) / pow(dx,2) + (Pressure[INDEX(i, j+1, k)] - Pressure[INDEX(i, j-1, k)]) / pow(dy,2) + (Pressure[INDEX(i, j, k+1)] - Pressure[INDEX(i, j, k-1)]) / pow(dz,2));
+                        Pressure[INDEX(i, j, k)] = fluid_density / (dt * 6) * (temp_number + Temp_Div[INDEX(i, j, k)]);
+                    }
+                }
+            }
+        }
+    }
+}
+
+void Mesh::Project_update_vel(float dt) {
+    for (int i = 0; i < numX; i++) {
+        for (int j = 0; j < numY; j++) {
+            for (int k = 0; k < numZ; k++) {
+                glm::vec3 current_pos = Position[INDEX(i, j, k)];
+                if (within_bounds(current_pos)) {
+                    glm::vec3 current_vel = Velocity[INDEX(i, j, k)];
+                    current_vel.x = current_vel.x - dt / (fluid_density * 2 * dx) * (Pressure[INDEX(i + 1, j, k)] - Pressure[INDEX(i - 1, j, k)]);
+                    current_vel.y = current_vel.y - dt / (fluid_density * 2 * dy) * (Pressure[INDEX(i, j + 1, k)] - Pressure[INDEX(i, j - 1, k)]);
+                    current_vel.z = current_vel.z - dt / (fluid_density * 2 * dz) * (Pressure[INDEX(i, j, k + 1)] - Pressure[INDEX(i, j, k - 1)]);
+                }
+            }
+        }
+}
 }
